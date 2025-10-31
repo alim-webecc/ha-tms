@@ -1,21 +1,30 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { ArrowLeft, ArrowRight, Check, Save } from "lucide-react"
-import { StepKunde } from "@/components/wizard/step-kunde"
-import { StepSendung } from "@/components/wizard/step-sendung"
-import { StepRelationen } from "@/components/wizard/step-relationen"
-import { StepZeiten } from "@/components/wizard/step-zeiten"
-import { StepRessourcen } from "@/components/wizard/step-ressourcen"
-import { StepPreise } from "@/components/wizard/step-preise"
-import { StepZusammenfassung } from "@/components/wizard/step-zusammenfassung"
-import { toast } from "sonner"
-import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
-import { UnsavedChangesDialog } from "@/components/unsaved-changes-dialog"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { ArrowLeft, ArrowRight, Check, Save } from "lucide-react";
+import { StepKunde } from "@/components/wizard/step-kunde";
+import { StepSendung } from "@/components/wizard/step-sendung";
+import { StepRelationen } from "@/components/wizard/step-relationen";
+import { StepZeiten } from "@/components/wizard/step-zeiten";
+import { StepRessourcen } from "@/components/wizard/step-ressourcen";
+import { StepPreise } from "@/components/wizard/step-preise";
+import { StepZusammenfassung } from "@/components/wizard/step-zusammenfassung";
+import { toast } from "sonner";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
+import { UnsavedChangesDialog } from "@/components/unsaved-changes-dialog";
+
+// Für die Erfolgsmeldung nach dem Speichern (Nummer formatieren)
+import pad8 from "@/app/utils/pad8";
 
 const STEPS = [
   { id: 1, title: "Kunde & Kontakt", component: StepKunde },
@@ -25,72 +34,108 @@ const STEPS = [
   { id: 5, title: "Ressourcen", component: StepRessourcen },
   { id: 6, title: "Preise & Kosten", component: StepPreise },
   { id: 7, title: "Zusammenfassung", component: StepZusammenfassung },
-]
+];
 
 export default function NeuerAuftragPage() {
-  const router = useRouter()
-  const [currentStep, setCurrentStep] = useState(1)
-  const [formData, setFormData] = useState({})
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
-  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
+  const router = useRouter();
 
-  useUnsavedChanges(hasUnsavedChanges)
+  // ⚠️ Auftragsnummer wird NICHT mehr vorab geladen.
+  // Sie wird beim Speichern serverseitig vergeben (race-safe).
+
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState({});
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(
+    null
+  );
+
+  useUnsavedChanges(hasUnsavedChanges);
 
   useEffect(() => {
     if (Object.keys(formData).length > 0) {
-      setHasUnsavedChanges(true)
+      setHasUnsavedChanges(true);
     }
-  }, [formData])
+  }, [formData]);
 
-  const progress = (currentStep / STEPS.length) * 100
-  const CurrentStepComponent = STEPS[currentStep - 1].component
+  const progress = (currentStep / STEPS.length) * 100;
+  const CurrentStepComponent = STEPS[currentStep - 1].component;
 
   const handleNext = () => {
     if (currentStep < STEPS.length) {
-      setCurrentStep(currentStep + 1)
-      toast.success("Schritt gespeichert")
+      setCurrentStep(currentStep + 1);
+      toast.success("Schritt gespeichert");
     }
-  }
+  };
 
   const handlePrevious = () => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
+      setCurrentStep(currentStep - 1);
     }
-  }
+  };
 
   const handleSaveDraft = () => {
-    setHasUnsavedChanges(false)
-    toast.success("Entwurf gespeichert")
-  }
+    setHasUnsavedChanges(false);
+    toast.success("Entwurf gespeichert");
+  };
 
-  const handleSubmit = () => {
-    setHasUnsavedChanges(false)
-    toast.success("Auftrag erfolgreich erstellt!")
-    router.push("/auftrage/offen")
-  }
+  const handleSubmit = async () => {
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          // ⚠️ KEINE orderNumber senden – Nummer wird im Backend vergeben
+          status: "offen",
+          title: (formData as any)?.title ?? null,
+          tenantId: "TR", // Platzhalter bis IAM
+          createdBy: "admin", // Platzhalter bis IAM
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const savedNumber: number | undefined = data?.order?.order_number;
+
+      setHasUnsavedChanges(false);
+      if (savedNumber != null) {
+        toast.success(`Auftrag ${pad8(savedNumber)} erfolgreich erstellt!`);
+      } else {
+        toast.success("Auftrag erfolgreich erstellt!");
+      }
+
+      router.push("/auftrage/offen"); // TODO: später auf Detailseite
+    } catch (e: any) {
+      console.error("Speichern fehlgeschlagen:", e);
+      toast.error(`Speichern fehlgeschlagen: ${e.message ?? e}`);
+    }
+  };
 
   const handleCancel = () => {
     if (hasUnsavedChanges) {
-      setPendingNavigation("/auftrage/offen")
-      setShowUnsavedDialog(true)
+      setPendingNavigation("/auftrage/offen");
+      setShowUnsavedDialog(true);
     } else {
-      router.push("/auftrage/offen")
+      router.push("/auftrage/offen");
     }
-  }
+  };
 
   const handleConfirmLeave = () => {
-    setHasUnsavedChanges(false)
-    setShowUnsavedDialog(false)
+    setHasUnsavedChanges(false);
+    setShowUnsavedDialog(false);
     if (pendingNavigation) {
-      router.push(pendingNavigation)
+      router.push(pendingNavigation);
     }
-  }
+  };
 
   const handleCancelLeave = () => {
-    setShowUnsavedDialog(false)
-    setPendingNavigation(null)
-  }
+    setShowUnsavedDialog(false);
+    setPendingNavigation(null);
+  };
 
   return (
     <>
@@ -98,41 +143,57 @@ export default function NeuerAuftragPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Neuen Auftrag erstellen</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Neuen Auftrag erstellen
+            </h1>
             <p className="text-muted-foreground mt-1">
-              Schritt {currentStep} von {STEPS.length}: {STEPS[currentStep - 1].title}
+              Schritt {currentStep} von {STEPS.length}:{" "}
+              {STEPS[currentStep - 1].title}
             </p>
           </div>
-          <Button variant="outline" onClick={handleSaveDraft} className="gap-2 bg-transparent">
+          <Button
+            variant="outline"
+            onClick={handleSaveDraft}
+            className="gap-2 bg-transparent"
+          >
             <Save className="h-4 w-4" />
             Als Entwurf speichern
           </Button>
         </div>
 
-        {/* Progress Bar */}
-        <div className="space-y-2">
-          <Progress value={progress} className="h-2" />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            {STEPS.map((step) => (
-              <button
-                key={step.id}
-                onClick={() => setCurrentStep(step.id)}
-                className={`flex-1 text-center transition-colors cursor-pointer ${
-                  step.id === currentStep ? "text-primary font-medium" : "hover:text-foreground"
-                } ${step.id < currentStep ? "text-green-600" : ""}`}
-              >
-                {step.id < currentStep ? <Check className="inline h-3 w-3 mr-1" /> : null}
-                {step.title}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* Auftragsnummer-Hinweis (readonly) */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Allgemeine Angaben</CardTitle>
+            <CardDescription>
+              Die Auftragsnummer wird <b>beim Speichern</b> automatisch vergeben
+              und ist nicht änderbar.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Auftragsnummer
+                </label>
+                <input
+                  type="text"
+                  readOnly
+                  value="Wird beim Speichern vergeben"
+                  className="border rounded px-3 py-2 w-full bg-gray-50"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Step Content */}
         <Card>
           <CardHeader>
             <CardTitle>{STEPS[currentStep - 1].title}</CardTitle>
-            <CardDescription>Füllen Sie die erforderlichen Felder aus</CardDescription>
+            <CardDescription>
+              Füllen Sie die erforderlichen Felder aus
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <CurrentStepComponent data={formData} onChange={setFormData} />
@@ -146,7 +207,11 @@ export default function NeuerAuftragPage() {
           </Button>
           <div className="flex gap-2">
             {currentStep > 1 && (
-              <Button variant="outline" onClick={handlePrevious} className="gap-2 bg-transparent">
+              <Button
+                variant="outline"
+                onClick={handlePrevious}
+                className="gap-2 bg-transparent"
+              >
                 <ArrowLeft className="h-4 w-4" />
                 Zurück
               </Button>
@@ -174,5 +239,5 @@ export default function NeuerAuftragPage() {
         onCancel={handleCancelLeave}
       />
     </>
-  )
+  );
 }

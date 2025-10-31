@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Sheet,
@@ -20,62 +20,87 @@ import { Button } from "@/components/ui/button";
 import { LayoutGrid, List } from "lucide-react";
 import { OrderFilters } from "@/components/orders/order-filters";
 import { OrderTable, type Order } from "@/components/orders/order-table";
+import { formatDate, formatEUR, pad8 } from "@/app/utils/format";
 
-// Demo-Daten (unverändert gelassen)
-const DEMO_ORDERS: Order[] = [
-  {
-    id: "10000007",
-    auftraggeber: "amat",
-    ladedatum: "2025-09-05",
-    vonPLZ: "85565",
-    entladedatum: "2025-10-04",
-    nachPLZ: "85309",
-    preisKunde: "3.500,00 €",
-    preisFF: "1.800,00 €",
-    frachtfuehrer: "semet",
-    ldm: "30",
-    gewicht: "350",
-    bemerkung: "test1",
-    status: "offen",
-    prioritaet: "hoch",
-  },
-  {
-    id: "10000006",
-    auftraggeber: "mirigul",
-    ladedatum: "2024-12-20",
-    vonPLZ: "89865",
-    entladedatum: "2025-09-19",
-    nachPLZ: "85309",
-    preisKunde: "2.000,00 €",
-    preisFF: "1.500,00 €",
-    frachtfuehrer: "alim",
-    ldm: "20",
-    gewicht: "200",
-    bemerkung: "test",
-    status: "offen",
-    prioritaet: "normal",
-  },
-  {
-    id: "10000003",
-    auftraggeber: "diyar",
-    ladedatum: "2025-08-16",
-    vonPLZ: "85276",
-    entladedatum: "2025-08-14",
-    nachPLZ: "85301",
-    preisKunde: "15.000,00 €",
-    preisFF: "10.000,00 €",
-    frachtfuehrer: "diyar",
-    ldm: "30",
-    gewicht: "3000",
-    bemerkung: "test",
-    status: "offen",
-  },
-];
+/** Rohdaten aus der API (entspricht public.orders) */
+type OrderRow = {
+  id: number;
+  order_number: number;
+  status: string;
+  shipper: string | null;
+  pickup_date: string | null; // "YYYY-MM-DD" oder ISO
+  dropoff_date: string | null;
+  from_zip: string | null;
+  to_zip: string | null;
+  price_customer: number | null;
+  price_carrier: number | null;
+  ldm: number | null;
+  weight_kg: number | null;
+  remark: string | null;
+  carrier: string | null;
+  tenant_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
 export default function OffeneAuftragePage() {
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  const [rows, setRows] = useState<OrderRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 1) Daten laden
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/orders?status=offen", {
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!active) return;
+        setRows(Array.isArray(data?.items) ? (data.items as OrderRow[]) : []);
+      } catch (e: any) {
+        console.error("Laden fehlgeschlagen:", e);
+        if (!active) return;
+        setError(e?.message ?? "Unbekannter Fehler");
+        setRows([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // 2) Mapping DB → UI-Order (so erwartet es <OrderTable/> & Karten)
+  const orders: Order[] = useMemo(() => {
+    return rows.map((r) => ({
+      id: pad8(r.order_number), // 8-stellig anzeigen
+      auftraggeber: r.shipper ?? "", // Auftraggeber
+      ladedatum: formatDate(r.pickup_date),
+      entladedatum: formatDate(r.dropoff_date),
+      vonPLZ: r.from_zip ?? "",
+      nachPLZ: r.to_zip ?? "",
+      preisKunde: formatEUR(r.price_customer), // "3.500,00 €"
+      preisFF: formatEUR(r.price_carrier),
+      frachtfuehrer: r.carrier ?? r.created_by ?? "",
+      ldm: r.ldm != null ? String(r.ldm) : "",
+      gewicht: r.weight_kg != null ? String(r.weight_kg) : "",
+      bemerkung: r.remark ?? "",
+      status: r.status as any, // "offen" | "in-bearbeitung" | "geschlossen"
+      prioritaet: "normal", // (vorerst statisch)
+    }));
+  }, [rows]);
 
   const handleRowClick = (order: Order) => {
     setSelectedOrder(order);
@@ -95,11 +120,12 @@ export default function OffeneAuftragePage() {
             Offene Aufträge
           </h1>
           <p className="text-sm text-muted-foreground">
-            {DEMO_ORDERS.length} Aufträge gefunden
+            {loading ? "lädt…" : `${orders.length} Aufträge gefunden`}
+            {error ? ` — Fehler: ${error}` : ""}
           </p>
         </div>
 
-        {/* Nur Ansichtsschalter – KEIN lokaler „Neuer Auftrag“-Button mehr */}
+        {/* Ansichtsschalter */}
         <Tabs
           value={viewMode}
           onValueChange={(v) => setViewMode(v as "table" | "cards")}
@@ -118,19 +144,19 @@ export default function OffeneAuftragePage() {
         </Tabs>
       </div>
 
-      {/* Filter */}
+      {/* Filter (noch ohne Funktion) */}
       <OrderFilters onFilterChange={() => {}} />
 
       {/* Tabelle oder Karten */}
       {viewMode === "table" ? (
         <OrderTable
-          orders={DEMO_ORDERS}
+          orders={orders}
           onRowClick={handleRowClick}
           onBulkAction={handleBulkAction}
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {DEMO_ORDERS.map((o) => (
+          {orders.map((o) => (
             <Card
               key={o.id}
               className="cursor-pointer transition-colors hover:border-primary"
@@ -138,48 +164,48 @@ export default function OffeneAuftragePage() {
             >
               <CardHeader>
                 <CardTitle>Auftrag {o.id}</CardTitle>
-                <CardDescription>{o.auftraggeber}</CardDescription>
+                <CardDescription>{o.auftraggeber || "—"}</CardDescription>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <div className="text-muted-foreground">Ladedatum</div>
-                  <div>{o.ladedatum}</div>
+                  <div>{o.ladedatum || "—"}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Entladedatum</div>
-                  <div>{o.entladedatum}</div>
+                  <div>{o.entladedatum || "—"}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">von (PLZ)</div>
-                  <div>{o.vonPLZ}</div>
+                  <div>{o.vonPLZ || "—"}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">nach (PLZ)</div>
-                  <div>{o.nachPLZ}</div>
+                  <div>{o.nachPLZ || "—"}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Preis Kunde</div>
-                  <div>{o.preisKunde}</div>
+                  <div>{o.preisKunde || "—"}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Preis FF</div>
-                  <div>{o.preisFF}</div>
+                  <div>{o.preisFF || "—"}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Frachtführer</div>
-                  <div>{o.frachtfuehrer}</div>
+                  <div>{o.frachtfuehrer || "—"}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">LDM</div>
-                  <div>{o.ldm}</div>
+                  <div>{o.ldm || "—"}</div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Gewicht (kg)</div>
-                  <div>{o.gewicht}</div>
+                  <div>{o.gewicht || "—"}</div>
                 </div>
                 <div className="col-span-2">
                   <div className="text-muted-foreground">Bemerkung</div>
-                  <div>{o.bemerkung || "Keine"}</div>
+                  <div>{o.bemerkung || "—"}</div>
                 </div>
                 <div className="col-span-2 flex gap-2 pt-2">
                   <Button variant="default" size="sm">
@@ -207,56 +233,49 @@ export default function OffeneAuftragePage() {
             <div className="grid grid-cols-2 gap-4 py-4 text-sm">
               <div>
                 <div className="text-muted-foreground">Auftraggeber</div>
-                <div>{selectedOrder.auftraggeber}</div>
+                <div>{selectedOrder.auftraggeber || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Frachtführer</div>
-                <div>{selectedOrder.frachtfuehrer}</div>
+                <div>{selectedOrder.frachtfuehrer || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Von</div>
-                <div>{selectedOrder.vonPLZ}</div>
+                <div>{selectedOrder.vonPLZ || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Nach</div>
-                <div>{selectedOrder.nachPLZ}</div>
+                <div>{selectedOrder.nachPLZ || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Ladedatum</div>
-                <div>{selectedOrder.ladedatum}</div>
+                <div>{selectedOrder.ladedatum || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Entladedatum</div>
-                <div>{selectedOrder.entladedatum}</div>
+                <div>{selectedOrder.entladedatum || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Preis Kunde</div>
-                <div>{selectedOrder.preisKunde}</div>
+                <div>{selectedOrder.preisKunde || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Preis FF</div>
-                <div>{selectedOrder.preisFF}</div>
+                <div>{selectedOrder.preisFF || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">LDM</div>
-                <div>{selectedOrder.ldm}</div>
+                <div>{selectedOrder.ldm || "—"}</div>
               </div>
               <div>
                 <div className="text-muted-foreground">Gewicht</div>
-                <div>{selectedOrder.gewicht} kg</div>
+                <div>
+                  {selectedOrder.gewicht ? `${selectedOrder.gewicht} kg` : "—"}
+                </div>
               </div>
               <div className="col-span-2">
                 <div className="text-muted-foreground">Bemerkung</div>
-                <div>{selectedOrder.bemerkung || "Keine"}</div>
-              </div>
-
-              <div className="col-span-2 flex gap-2 pt-2">
-                <Button variant="default" size="sm">
-                  Details anzeigen
-                </Button>
-                <Button variant="outline" size="sm">
-                  Bearbeiten
-                </Button>
+                <div>{selectedOrder.bemerkung || "—"}</div>
               </div>
             </div>
           )}
