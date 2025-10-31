@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,38 +18,35 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 
-/**
- * Next.js 15: params kann ein Promise sein.
- * Wir typisieren nicht eng und normalisieren die ID selbst.
- */
-export default function AuftragsDetailPage(props: any) {
+export default function AuftragsDetailPage() {
   const router = useRouter();
+  const params = useParams(); // <-- sicher in Client Components
+  // params.id kommt als string | string[]
+  const idStr = useMemo(() => {
+    const raw = (params?.id ?? "") as string | string[];
+    const s = Array.isArray(raw) ? raw[0] : raw;
+    return String(s ?? "");
+  }, [params]);
 
-  // params normalisieren (Promise oder Objekt)
-  const [idStr] = (() => {
-    const p = props?.params as any;
-    // Kann ein Promise sein – wir versuchen synchron zu lesen; wenn Promise, fällt es auf undefined.
-    // Für Client Components (hier) liefert Next die params synchron.
-    const raw = (p && p.id) ?? props?.params?.id ?? "";
-    const idP = Array.isArray(raw) ? raw[0] : raw;
-    const s = String(idP ?? "");
-    return [s] as const;
-  })();
-
-  // numerische ID für API ableiten (führende Nullen entfernen)
-  const numericId = (() => {
+  // numerische ID (führende Nullen entfernen)
+  const numericId = useMemo(() => {
     const trimmed = idStr.replace(/^0+/, "");
     const n = Number(trimmed);
     return Number.isFinite(n) && n > 0 ? n : Number(idStr);
-  })();
+  }, [idStr]);
 
-  // Felder: wir ändern am Server aktuell nur Status + Remark
+  // editierbare Felder (wir schicken status/remark an die API)
   const [status, setStatus] = useState<string>("in-bearbeitung");
   const remarkRef = useRef<HTMLTextAreaElement>(null);
 
   const busyRef = useRef(false);
 
   async function handleSave() {
+    console.log("[Detail] SAVE clicked", { numericId, status });
+    if (!numericId || Number.isNaN(numericId)) {
+      alert("Ungültige Auftrags-ID.");
+      return;
+    }
     if (busyRef.current) return;
     busyRef.current = true;
     try {
@@ -81,8 +78,13 @@ export default function AuftragsDetailPage(props: any) {
   }
 
   async function handleDelete() {
-    if (busyRef.current) return;
+    console.log("[Detail] DELETE clicked", { numericId });
+    if (!numericId || Number.isNaN(numericId)) {
+      alert("Ungültige Auftrags-ID.");
+      return;
+    }
     if (!confirm("Diesen Auftrag wirklich löschen?")) return;
+    if (busyRef.current) return;
 
     busyRef.current = true;
     try {
@@ -215,10 +217,12 @@ export default function AuftragsDetailPage(props: any) {
             <Button variant="outline" asChild>
               <Link href="/auftrage/offen">Abbrechen</Link>
             </Button>
-            <Button variant="secondary" onClick={handleSave}>
+            <Button variant="secondary" onClick={handleSave} type="button">
               Speichern
             </Button>
-            <Button onClick={handleDelete}>Löschen</Button>
+            <Button onClick={handleDelete} type="button">
+              Löschen
+            </Button>
           </div>
         </CardContent>
       </Card>
