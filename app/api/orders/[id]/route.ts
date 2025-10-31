@@ -1,13 +1,11 @@
 // app/api/orders/[id]/route.ts
-export const runtime = "nodejs";
-
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { pg } from "../../../../lib/db";
 
-type Params = { params: { id: string } };
+export const runtime = "nodejs";
 
 // GET /api/orders/:id
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const id = Number(params.id);
   if (!Number.isFinite(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
@@ -26,15 +24,15 @@ export async function GET(_req: NextRequest, { params }: Params) {
   }
 }
 
-// PUT /api/orders/:id
-export async function PUT(req: NextRequest, { params }: Params) {
+// PUT /api/orders/:id  (nur status/remark updaten – Feld 'title' gibt's im Schema nicht)
+export async function PUT(req: Request, { params }: { params: { id: string } }) {
   const id = Number(params.id);
   if (!Number.isFinite(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
   const body = (await req.json().catch(() => null)) as Partial<{
-    status: string; title: string; remark: string;
+    status: string; remark: string;
   }>;
   if (!body) return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
 
@@ -43,12 +41,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const { rows } = await client.query(
       `UPDATE public.orders
          SET status = COALESCE($2, status),
-             title  = COALESCE($3, title),
-             remark = COALESCE($4, remark),
+             remark = COALESCE($3, remark),
              updated_at = now()
        WHERE id = $1
        RETURNING *`,
-      [id, body.status ?? null, body.title ?? null, body.remark ?? null]
+      [id, body.status ?? null, body.remark ?? null]
     );
     if (!rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ ok: true, item: rows[0] });
@@ -61,7 +58,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/orders/:id  (soft delete)
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const id = Number(params.id);
   if (!Number.isFinite(id)) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });

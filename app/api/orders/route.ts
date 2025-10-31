@@ -1,8 +1,8 @@
 // app/api/orders/route.ts
-export const runtime = "nodejs";
-
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { pg } from "../../../lib/db";
+
+export const runtime = "nodejs";
 
 /** -----------------------------
  *  Datentypen
@@ -48,7 +48,7 @@ type OrderPayload = {
 /** -----------------------------
  *  GET → Aufträge laden
  *  ---------------------------- */
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
   const limit = Math.max(1, Math.min(Number(searchParams.get("limit") ?? 50), 200));
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
 /** -----------------------------
  *  POST → Auftrag speichern
  *  ---------------------------- */
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   const client = await pg.connect();
   try {
     const body = (await req.json()) as Partial<OrderPayload>;
