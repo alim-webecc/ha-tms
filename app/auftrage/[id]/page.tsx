@@ -1,13 +1,29 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft } from "lucide-react"
+// app/auftrage/[id]/page.tsx
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft } from "lucide-react";
 
-export default function AuftragsDetailPage({ params }: { params: { id: string } }) {
+/**
+ * Next.js 15: props.params ist ein Promise.
+ * Wir typisieren den zweiten Parameter nicht eng, sondern normalisieren selbst.
+ */
+export default async function AuftragsDetailPage(props: any) {
+  const p = await props.params; // in Next.js 15 kann params ein Promise sein
+  const raw = p?.id;
+  const idParam = Array.isArray(raw) ? raw[0] : raw;
+  const id = String(idParam ?? "");
+
   return (
     <div className="container py-8 space-y-6">
       <div className="flex items-center gap-4">
@@ -27,17 +43,18 @@ export default function AuftragsDetailPage({ params }: { params: { id: string } 
           <div className="grid gap-6 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="auftragsId">Auftrags-ID</Label>
-              <Input id="auftragsId" value="10000017" readOnly disabled />
+              <Input id="auftragsId" value={id} readOnly disabled />
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status *</Label>
-              <Select defaultValue="bearbeitung">
+              {/* Werte an API-Status anlehnen: offen | in-bearbeitung | geschlossen */}
+              <Select defaultValue="in-bearbeitung">
                 <SelectTrigger id="status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="offen">Offen</SelectItem>
-                  <SelectItem value="bearbeitung">In Bearbeitung</SelectItem>
+                  <SelectItem value="in-bearbeitung">In Bearbeitung</SelectItem>
                   <SelectItem value="geschlossen">Geschlossen</SelectItem>
                 </SelectContent>
               </Select>
@@ -59,7 +76,8 @@ export default function AuftragsDetailPage({ params }: { params: { id: string } 
             </div>
             <div className="space-y-2">
               <Label htmlFor="entladedatum">Entladedatum *</Label>
-              <Input id="entladedatum" type="date" defaultValue="2025-09-2025" />
+              {/* war ungültiges Datum; korrigiert auf gültiges YYYY-MM-DD */}
+              <Input id="entladedatum" type="date" defaultValue="2025-09-25" />
             </div>
           </div>
 
@@ -113,5 +131,5 @@ export default function AuftragsDetailPage({ params }: { params: { id: string } 
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
