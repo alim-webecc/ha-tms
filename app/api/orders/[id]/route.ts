@@ -1,135 +1,83 @@
 // app/api/orders/[id]/route.ts
-import { NextResponse } from "next/server";
-// vier Ebenen hoch bis Projektroot:
-import { pg } from "../../../../lib/db";
+import { NextResponse } from 'next/server';
+import { pg } from '../../../../lib/db';
 
-// Felder, die per PUT geändert werden dürfen
-const UPDATABLE = new Set([
-  "status",
-  "remark",
-  "title",
-  "shipper",
-  "pickup_date",
-  "dropoff_date",
-  "from_zip",
-  "to_zip",
-  "price_customer",
-  "price_carrier",
-  "ldm",
-  "weight_kg",
-  "carrier",
-]);
+export const runtime = 'nodejs';
 
-// GET /api/orders/:id -> Einzelauftrag
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
-  const idNum = Number(params.id);
-  if (!Number.isFinite(idNum)) {
-    return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
-  }
+type Ctx = { params: { id: string } };
+
+// GET /api/orders/:id
+export async function GET(_req: Request, { params }: Ctx) {
+  const id = Number(params.id);
+  if (!Number.isFinite(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+
+  const client = await pg.connect();
   try {
-    const { rows } = await pg.query(
-      `SELECT *
-         FROM public.orders
-        WHERE id = $1`,
-      [idNum]
-    );
-    if (rows.length === 0) {
-      return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-    }
+    const { rows } = await client.query('SELECT * FROM public.orders WHERE id = $1', [id]);
+    if (!rows[0]) return NextResponse.json({ ok: true, item: null }, { status: 200 });
     return NextResponse.json({ ok: true, item: rows[0] });
-  } catch (err) {
-    console.error("GET /api/orders/:id", err);
-    return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
+  } catch (e) {
+    console.error('GET /orders/:id', e);
+    return NextResponse.json({ error: 'DB error' }, { status: 500 });
+  } finally {
+    client.release();
   }
 }
 
-// PUT /api/orders/:id -> Teil-Update
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
-  const idNum = Number(params.id);
-  if (!Number.isFinite(idNum)) {
-    return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
-  }
+// PUT /api/orders/:id
+export async function PUT(req: Request, { params }: Ctx) {
+  const id = Number(params.id);
+  if (!Number.isFinite(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  const body = await req.json().catch(() => null) as Partial<{
+    status: string; title: string; remark: string;
+  }>;
+  if (!body) return NextResponse.json({ error: 'Ungültiges JSON' }, { status: 400 });
 
-  let payload: Record<string, any>;
+  const client = await pg.connect();
   try {
-    payload = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
-  }
-
-  // Nur erlaubte Felder übernehmen
-  const fields: string[] = [];
-  const values: any[] = [];
-  let idx = 1;
-  for (const [k, v] of Object.entries(payload)) {
-    if (UPDATABLE.has(k)) {
-      fields.push(`${k} = $${idx++}`);
-      values.push(v);
-    }
-  }
-  if (fields.length === 0) {
-    return NextResponse.json({ error: "Keine gültigen Felder" }, { status: 400 });
-  }
-  values.push(idNum); // WHERE
-
-  try {
-    const { rows } = await pg.query(
+    const { rows } = await client.query(
       `UPDATE public.orders
-          SET ${fields.join(", ")}, updated_at = now()
-        WHERE id = $${idx}
-      RETURNING *`,
-      values
+         SET status = COALESCE($2, status),
+             title  = COALESCE($3, title),
+             remark = COALESCE($4, remark),
+             updated_at = now()
+       WHERE id = $1
+       RETURNING *`,
+      [id, body.status ?? null, body.title ?? null, body.remark ?? null]
     );
-    if (rows.length === 0) {
-      return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-    }
+    if (!rows[0]) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ ok: true, item: rows[0] });
-  } catch (err) {
-    console.error("PUT /api/orders/:id", err);
-    return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
+  } catch (e) {
+    console.error('PUT /orders/:id', e);
+    return NextResponse.json({ error: 'DB error' }, { status: 500 });
+  } finally {
+    client.release();
   }
 }
 
-// DELETE /api/orders/:id -> Soft-Delete (Status "gelöscht")
-export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  const idNum = Number(params.id);
-  if (!Number.isFinite(idNum)) {
-    return NextResponse.json({ error: "Ungültige ID" }, { status: 400 });
-  }
+// DELETE /api/orders/:id  (soft delete)
+export async function DELETE(req: Request, { params }: Ctx) {
+  const id = Number(params.id);
+  if (!Number.isFinite(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+  const body = await req.json().catch(() => ({})) as { remark?: string };
 
-  // Optional: Remark aus Body übernehmen (für Löschgrund)
-  let remark: string | null = null;
+  const client = await pg.connect();
   try {
-    const body = await req.json().catch(() => null);
-    if (body && typeof body.remark === "string") {
-      remark = body.remark;
-    }
-  } catch {
-    /* ignore parse errors -> remark bleibt null */
-  }
-
-  try {
-    const { rows } = await pg.query(
+    const { rows } = await client.query(
       `UPDATE public.orders
-          SET status = 'gelöscht',
-              remark = COALESCE($1, remark),
-              updated_at = now()
-        WHERE id = $2
-      RETURNING *`,
-      [remark, idNum]
+         SET status='gelöscht',
+             remark = COALESCE($2, remark),
+             updated_at = now()
+       WHERE id = $1
+       RETURNING *`,
+      [id, body.remark ?? null]
     );
-    if (rows.length === 0) {
-      return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-    }
+    if (!rows[0]) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ ok: true, item: rows[0] });
-  } catch (err) {
-    console.error("DELETE /api/orders/:id", err);
-    return NextResponse.json({ error: "Serverfehler" }, { status: 500 });
+  } catch (e) {
+    console.error('DELETE /orders/:id', e);
+    return NextResponse.json({ error: 'DB error' }, { status: 500 });
+  } finally {
+    client.release();
   }
 }
