@@ -28,7 +28,7 @@ export default function AuftragsDetailPage(props: any) {
   const [dbId, setDbId] = useState<number | null>(null); // wirkliche DB-ID
   const [resolving, setResolving] = useState<boolean>(true);
 
-  // Refs zu den Eingaben (wir lassen das UI visuell unverändert)
+  // Refs zu den Eingaben (UI bleibt unverändert)
   const statusRef = useRef<string>("in-bearbeitung");
   const remarkRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -51,9 +51,7 @@ export default function AuftragsDetailPage(props: any) {
     const run = async () => {
       setResolving(true);
       try {
-        // Wir haben kein Backend-Filter nach order_number,
-        // deshalb holen wir (für jetzt) die Liste und filtern clientseitig.
-        // Datensatzmenge ist aktuell klein; später machen wir /by-number-Endpoint.
+        // Temporär: Liste holen und clientseitig finden
         const res = await fetch("/api/orders?tenantId=TR", {
           cache: "no-store",
         });
@@ -61,10 +59,10 @@ export default function AuftragsDetailPage(props: any) {
         const data = await res.json();
 
         const items: Array<any> = Array.isArray(data?.items) ? data.items : [];
-        // find by order_number (Zahl)
         const found = items.find(
           (x) => Number(x?.order_number) === routeOrderNumber
         );
+
         if (active) {
           if (found?.id != null) {
             setDbId(Number(found.id));
@@ -104,7 +102,7 @@ export default function AuftragsDetailPage(props: any) {
     }
     try {
       const body: any = {
-        // unser Backend erlaubt aktuell PUT nur für status & remark
+        // aktuell erlaubt Backend PUT nur status & remark
         status: statusRef.current,
         remark: remarkRef.current?.value ?? null,
       };
@@ -245,7 +243,7 @@ export default function AuftragsDetailPage(props: any) {
               id="bemerkung"
               defaultValue="test1"
               rows={3}
-              ref={(el) => (remarkRef.current = el)}
+              ref={remarkRef} // ← TS-sicher: gibt nichts zurück
             />
           </div>
 
