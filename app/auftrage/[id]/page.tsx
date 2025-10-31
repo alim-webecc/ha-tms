@@ -1,9 +1,8 @@
+// app/auftrage/[id]/page.tsx
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,45 +16,100 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 
-export default function AuftragsDetailPage() {
-  const router = useRouter();
-  const params = useParams(); // <-- sicher in Client Components
-  // params.id kommt als string | string[]
-  const idStr = useMemo(() => {
-    const raw = (params?.id ?? "") as string | string[];
-    const s = Array.isArray(raw) ? raw[0] : raw;
-    return String(s ?? "");
-  }, [params]);
+/**
+ * Next.js 15: props.params kann ein Promise sein. Wir normalisieren selbst.
+ * Route-Param ist aktuell die AUFTRAGSNUMMER (gepolstert), NICHT die DB-ID.
+ * Für PUT/DELETE müssen wir die DB-ID lookup'en.
+ */
+export default function AuftragsDetailPage(props: any) {
+  const [routeOrderNumber, setRouteOrderNumber] = useState<number | null>(null); // z.B. 18 aus "00000018"
+  const [dbId, setDbId] = useState<number | null>(null); // wirkliche DB-ID
+  const [resolving, setResolving] = useState<boolean>(true);
 
-  // numerische ID (führende Nullen entfernen)
-  const numericId = useMemo(() => {
-    const trimmed = idStr.replace(/^0+/, "");
-    const n = Number(trimmed);
-    return Number.isFinite(n) && n > 0 ? n : Number(idStr);
-  }, [idStr]);
+  // Refs zu den Eingaben (wir lassen das UI visuell unverändert)
+  const statusRef = useRef<string>("in-bearbeitung");
+  const remarkRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // editierbare Felder (wir schicken status/remark an die API)
-  const [status, setStatus] = useState<string>("in-bearbeitung");
-  const remarkRef = useRef<HTMLTextAreaElement>(null);
+  // Param lesen (kann Promise sein)
+  useEffect(() => {
+    (async () => {
+      const p = await props.params;
+      const raw = Array.isArray(p?.id) ? p.id[0] : p?.id;
+      const numeric = String(raw ?? "").replace(/^0+/, ""); // "00000018" -> "18"
+      const ordNo = numeric ? Number(numeric) : NaN;
+      setRouteOrderNumber(Number.isFinite(ordNo) ? ordNo : null);
+    })();
+  }, [props.params]);
 
-  const busyRef = useRef(false);
+  // DB-ID lookup (aus order_number -> id)
+  useEffect(() => {
+    if (routeOrderNumber == null) return;
+    let active = true;
 
-  async function handleSave() {
-    console.log("[Detail] SAVE clicked", { numericId, status });
-    if (!numericId || Number.isNaN(numericId)) {
-      alert("Ungültige Auftrags-ID.");
+    const run = async () => {
+      setResolving(true);
+      try {
+        // Wir haben kein Backend-Filter nach order_number,
+        // deshalb holen wir (für jetzt) die Liste und filtern clientseitig.
+        // Datensatzmenge ist aktuell klein; später machen wir /by-number-Endpoint.
+        const res = await fetch("/api/orders?tenantId=TR", {
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        const items: Array<any> = Array.isArray(data?.items) ? data.items : [];
+        // find by order_number (Zahl)
+        const found = items.find(
+          (x) => Number(x?.order_number) === routeOrderNumber
+        );
+        if (active) {
+          if (found?.id != null) {
+            setDbId(Number(found.id));
+          } else {
+            setDbId(null);
+            toast.error(
+              `Kein Auftrag mit Nummer ${routeOrderNumber} gefunden (DB-ID unbekannt).`
+            );
+          }
+        }
+      } catch (e: any) {
+        if (active) {
+          setDbId(null);
+          toast.error(`Lookup fehlgeschlagen: ${e?.message ?? e}`);
+        }
+      } finally {
+        if (active) setResolving(false);
+      }
+    };
+
+    run();
+    return () => {
+      active = false;
+    };
+  }, [routeOrderNumber]);
+
+  // Anzeige-Text der Kopfzeile (immer gepolstert anzeigen)
+  const paddedId = useMemo(() => {
+    if (routeOrderNumber == null) return "";
+    return routeOrderNumber.toString().padStart(8, "0");
+  }, [routeOrderNumber]);
+
+  const handleSave = async () => {
+    if (dbId == null) {
+      toast.error("Speichern nicht möglich: DB-ID unbekannt.");
       return;
     }
-    if (busyRef.current) return;
-    busyRef.current = true;
     try {
-      const body = {
-        status,
-        remark: remarkRef.current?.value || null,
+      const body: any = {
+        // unser Backend erlaubt aktuell PUT nur für status & remark
+        status: statusRef.current,
+        remark: remarkRef.current?.value ?? null,
       };
 
-      const res = await fetch(`/api/orders/${numericId}`, {
+      const res = await fetch(`/api/orders/${dbId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -66,36 +120,22 @@ export default function AuftragsDetailPage() {
         throw new Error(err?.error || `HTTP ${res.status}`);
       }
 
-      alert("Auftrag wurde gespeichert.");
-      // Optional: zurück zur Liste
-      // router.push("/auftrage/offen");
+      toast.success(`Auftrag ${paddedId} wurde gespeichert.`);
     } catch (e: any) {
-      console.error("PUT fehlgeschlagen:", e);
-      alert(`Speichern fehlgeschlagen: ${e?.message ?? e}`);
-    } finally {
-      busyRef.current = false;
+      toast.error(`Speichern fehlgeschlagen: ${e?.message ?? e}`);
     }
-  }
+  };
 
-  async function handleDelete() {
-    console.log("[Detail] DELETE clicked", { numericId });
-    if (!numericId || Number.isNaN(numericId)) {
-      alert("Ungültige Auftrags-ID.");
+  const handleDelete = async () => {
+    if (dbId == null) {
+      toast.error("Löschen nicht möglich: DB-ID unbekannt.");
       return;
     }
-    if (!confirm("Diesen Auftrag wirklich löschen?")) return;
-    if (busyRef.current) return;
-
-    busyRef.current = true;
     try {
-      const body = {
-        remark: remarkRef.current?.value || "Gelöscht über Detailansicht",
-      };
-
-      const res = await fetch(`/api/orders/${numericId}`, {
+      const res = await fetch(`/api/orders/${dbId}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ remark: "Gelöscht via UI" }),
       });
 
       if (!res.ok) {
@@ -103,15 +143,13 @@ export default function AuftragsDetailPage() {
         throw new Error(err?.error || `HTTP ${res.status}`);
       }
 
-      alert("Auftrag wurde gelöscht.");
-      router.push("/auftrage/offen");
+      toast.success(`Auftrag ${paddedId} wurde gelöscht.`);
+      // Zurück zur Liste
+      window.location.href = "/auftrage/offen";
     } catch (e: any) {
-      console.error("DELETE fehlgeschlagen:", e);
-      alert(`Löschen fehlgeschlagen: ${e?.message ?? e}`);
-    } finally {
-      busyRef.current = false;
+      toast.error(`Löschen fehlgeschlagen: ${e?.message ?? e}`);
     }
-  }
+  };
 
   return (
     <div className="container py-8 space-y-6">
@@ -132,11 +170,14 @@ export default function AuftragsDetailPage() {
           <div className="grid gap-6 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="auftragsId">Auftrags-ID</Label>
-              <Input id="auftragsId" value={idStr} readOnly disabled />
+              <Input id="auftragsId" value={paddedId} readOnly disabled />
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status *</Label>
-              <Select value={status} onValueChange={setStatus}>
+              <Select
+                defaultValue="in-bearbeitung"
+                onValueChange={(v) => (statusRef.current = v)}
+              >
                 <SelectTrigger id="status">
                   <SelectValue />
                 </SelectTrigger>
@@ -204,7 +245,7 @@ export default function AuftragsDetailPage() {
               id="bemerkung"
               defaultValue="test1"
               rows={3}
-              ref={remarkRef}
+              ref={(el) => (remarkRef.current = el)}
             />
           </div>
 
@@ -217,10 +258,16 @@ export default function AuftragsDetailPage() {
             <Button variant="outline" asChild>
               <Link href="/auftrage/offen">Abbrechen</Link>
             </Button>
-            <Button variant="secondary" onClick={handleSave} type="button">
-              Speichern
+
+            <Button
+              variant="secondary"
+              onClick={handleSave}
+              disabled={resolving || dbId == null}
+            >
+              {resolving ? "Lädt…" : "Speichern"}
             </Button>
-            <Button onClick={handleDelete} type="button">
+
+            <Button onClick={handleDelete} disabled={resolving || dbId == null}>
               Löschen
             </Button>
           </div>
