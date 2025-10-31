@@ -159,7 +159,10 @@ export default function OffeneAuftragePage() {
       {viewMode === "table" ? (
         <OrderTable
           orders={orders}
-          onRowClick={handleRowClick}
+          onRowClick={(order) => {
+            const id = idMap.get(order.id);
+            if (id) window.location.href = `/auftrage/${id}`;
+          }}
           onBulkAction={handleBulkAction}
         />
       ) : (
