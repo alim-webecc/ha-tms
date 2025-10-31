@@ -1,10 +1,11 @@
 // app/api/orders/[id]/route.ts
-import { NextResponse } from "next/server";
-import { pg } from "../../../../lib/db";
-
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-// Hilfsfunktion: id aus context.params holen & normalisieren
+import { NextResponse } from "next/server";
+import { getPool } from "../../../../lib/db";
+
 function getIdFromContext(context: any): number | null {
   const raw = Array.isArray(context?.params?.id)
     ? context.params.id[0]
@@ -20,9 +21,9 @@ export async function GET(_req: Request, context: any) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
-  const client = await pg.connect();
+  const pg = getPool();
   try {
-    const { rows } = await client.query(
+    const { rows } = await pg.query(
       "SELECT * FROM public.orders WHERE id = $1",
       [id]
     );
@@ -31,8 +32,6 @@ export async function GET(_req: Request, context: any) {
   } catch (e) {
     console.error("GET /orders/:id", e);
     return NextResponse.json({ error: "DB error" }, { status: 500 });
-  } finally {
-    client.release();
   }
 }
 
@@ -48,9 +47,9 @@ export async function PUT(req: Request, context: any) {
   }>;
   if (!body) return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
 
-  const client = await pg.connect();
+  const pg = getPool();
   try {
-    const { rows } = await client.query(
+    const { rows } = await pg.query(
       `UPDATE public.orders
          SET status = COALESCE($2, status),
              remark = COALESCE($3, remark),
@@ -64,8 +63,6 @@ export async function PUT(req: Request, context: any) {
   } catch (e) {
     console.error("PUT /orders/:id", e);
     return NextResponse.json({ error: "DB error" }, { status: 500 });
-  } finally {
-    client.release();
   }
 }
 
@@ -77,9 +74,9 @@ export async function DELETE(req: Request, context: any) {
   }
   const body = (await req.json().catch(() => ({}))) as { remark?: string };
 
-  const client = await pg.connect();
+  const pg = getPool();
   try {
-    const { rows } = await client.query(
+    const { rows } = await pg.query(
       `UPDATE public.orders
          SET status='gelöscht',
              remark = COALESCE($2, remark),
@@ -93,7 +90,5 @@ export async function DELETE(req: Request, context: any) {
   } catch (e) {
     console.error("DELETE /orders/:id", e);
     return NextResponse.json({ error: "DB error" }, { status: 500 });
-  } finally {
-    client.release();
   }
 }

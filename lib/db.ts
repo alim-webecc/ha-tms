@@ -1,26 +1,26 @@
 // lib/db.ts
-import { Pool } from 'pg';
+import { Pool } from "pg";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL ist nicht gesetzt (env)!');
-}
+let _pool: Pool | null = null;
 
-// Globales Pool-Singleton (verhindert mehrere Pools bei HMR/Dev)
-declare global {
-  // eslint-disable-next-line no-var
-  var __pgPool__: Pool | undefined;
-}
+/**
+ * Initialisiert den Pool erst beim ersten Aufruf.
+ * Wirf nur dann, wenn tatsächlich eine DB-Operation benötigt wird.
+ * So crasht der Docker-Build nicht, wenn DATABASE_URL zur Build-Zeit fehlt.
+ */
+export function getPool(): Pool {
+  if (_pool) return _pool;
 
-const pool =
-  globalThis.__pgPool__ ??
-  new Pool({
-    connectionString: process.env.DATABASE_URL,
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error("DATABASE_URL ist nicht gesetzt (env)!");
+  }
+
+  _pool = new Pool({
+    connectionString: url,
     max: 10,
     idleTimeoutMillis: 30_000,
   });
 
-if (process.env.NODE_ENV !== 'production') {
-  globalThis.__pgPool__ = pool;
+  return _pool;
 }
-
-export const pg = pool;

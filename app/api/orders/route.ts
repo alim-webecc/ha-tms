@@ -1,8 +1,10 @@
 // app/api/orders/route.ts
-import { NextResponse } from "next/server";
-import { pg } from "../../../lib/db";
-
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+import { NextResponse } from "next/server";
+import { getPool } from "../../../lib/db";
 
 type OrderRow = {
   id: number;
@@ -49,13 +51,13 @@ export async function GET(req: Request) {
   const offset = Math.max(0, Number(searchParams.get("offset") ?? 0));
   const tenantId = searchParams.get("tenantId") ?? "TR";
 
-  const client = await pg.connect();
+  const pg = getPool();
   try {
     const conds: string[] = ["tenant_id = $1"];
     const params: any[] = [tenantId];
 
     if (status && ["offen", "in-bearbeitung", "geschlossen"].includes(status)) {
-      conds.push("status = $2");
+      conds.push("status = $" + (params.length + 1));
       params.push(status);
     }
 
@@ -72,17 +74,16 @@ export async function GET(req: Request) {
       LIMIT $${params.length - 1} OFFSET $${params.length};
     `;
 
-    const { rows } = await client.query<OrderRow>(sql, params);
+    const { rows } = await pg.query<OrderRow>(sql, params);
     return NextResponse.json({ ok: true, items: rows }, { status: 200 });
   } catch (e) {
     console.error("GET /api/orders Fehler:", e);
     return NextResponse.json({ error: "Serverfehler beim Laden" }, { status: 500 });
-  } finally {
-    client.release();
   }
 }
 
 export async function POST(req: Request) {
+  const pg = getPool();
   const client = await pg.connect();
   try {
     const body = (await req.json()) as Partial<OrderPayload>;
