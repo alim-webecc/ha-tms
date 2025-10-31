@@ -42,3 +42,5 @@ Thumbs.db
 
 # Optional: wenn du Docker verwendest
 docker-compose.override.yml
+
+.env.production
