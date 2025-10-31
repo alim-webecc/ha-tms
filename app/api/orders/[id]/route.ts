@@ -4,18 +4,19 @@ import { pg } from "../../../../lib/db";
 
 export const runtime = "nodejs";
 
-type Context = { params: Record<string, string | string[]> };
-
-function normalizeId(params: Record<string, string | string[]>) {
-  const raw = Array.isArray(params.id) ? params.id[0] : params.id;
-  const id = Number(raw);
-  return Number.isFinite(id) ? id : null;
+// Hilfsfunktion: id aus params sicher extrahieren
+function normalizeIdParam(params: Record<string, string | string[]>) {
+  const raw = params.id;
+  const idStr = Array.isArray(raw) ? raw[0] : raw;
+  return Number(idStr);
 }
 
 // GET /api/orders/:id
-export async function GET(_req: Request, { params }: Context) {
-  const id = normalizeId(params);
-  if (id === null) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+export async function GET(_req: Request, { params }: { params: Record<string, string | string[]> }) {
+  const id = normalizeIdParam(params);
+  if (!Number.isFinite(id)) {
+    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  }
 
   const client = await pg.connect();
   try {
@@ -30,10 +31,12 @@ export async function GET(_req: Request, { params }: Context) {
   }
 }
 
-// PUT /api/orders/:id  (status/remark updaten)
-export async function PUT(req: Request, { params }: Context) {
-  const id = normalizeId(params);
-  if (id === null) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+// PUT /api/orders/:id  (nur status/remark updaten)
+export async function PUT(req: Request, { params }: { params: Record<string, string | string[]> }) {
+  const id = normalizeIdParam(params);
+  if (!Number.isFinite(id)) {
+    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  }
 
   const body = (await req.json().catch(() => null)) as Partial<{ status: string; remark: string }>;
   if (!body) return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
@@ -60,10 +63,11 @@ export async function PUT(req: Request, { params }: Context) {
 }
 
 // DELETE /api/orders/:id  (soft delete)
-export async function DELETE(req: Request, { params }: Context) {
-  const id = normalizeId(params);
-  if (id === null) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
-
+export async function DELETE(req: Request, { params }: { params: Record<string, string | string[]> }) {
+  const id = normalizeIdParam(params);
+  if (!Number.isFinite(id)) {
+    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  }
   const body = (await req.json().catch(() => ({}))) as { remark?: string };
 
   const client = await pg.connect();
