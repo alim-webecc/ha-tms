@@ -1,12 +1,12 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import Image from "next/image"
-import { usePathname, useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { ThemeSwitcher } from "@/components/theme-switcher"
-import { Building2, ChevronDown, Search, Bell, User, Plus } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { ThemeSwitcher } from "@/components/theme-switcher";
+import { Building2, ChevronDown, Search, Bell, User, Plus } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,22 +14,22 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 
 export function Header() {
-  const pathname = usePathname()
-  const router = useRouter()
-  const { user, tenant, logout, isAdmin, hasRole } = useAuth()
+  const pathname = usePathname();
+  const router = useRouter();
+  const { user, tenant, logout, isAdmin, hasRole } = useAuth();
 
   if (pathname === "/login") {
-    return null
+    return null;
   }
 
   const handleLogout = () => {
-    logout()
-    router.push("/login")
-  }
+    logout();
+    router.push("/login");
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -47,7 +47,9 @@ export function Header() {
           ) : (
             <Building2 className="h-7 w-7 text-primary" />
           )}
-          <span className="text-lg font-semibold hidden sm:inline">{tenant?.name || "HATOMS"}</span>
+          <span className="text-lg font-semibold hidden sm:inline">
+            {tenant?.name || "HATOMS"}
+          </span>
         </Link>
 
         {/* Main Navigation */}
@@ -66,7 +68,10 @@ export function Header() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/auftrage/in-bearbeitung" className="cursor-pointer">
+                <Link
+                  href="/auftrage/in-bearbeitung"
+                  className="cursor-pointer"
+                >
                   Aufträge in Bearbeitung
                 </Link>
               </DropdownMenuItem>
@@ -100,7 +105,10 @@ export function Header() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/verwaltung/mitarbeiter-historie" className="cursor-pointer">
+                  <Link
+                    href="/verwaltung/mitarbeiter-historie"
+                    className="cursor-pointer"
+                  >
                     Mitarbeiter Beschäftigungshistorie
                   </Link>
                 </DropdownMenuItem>
@@ -127,7 +135,7 @@ export function Header() {
         {/* Quick Actions */}
         <Button size="sm" className="hidden md:flex gap-2">
           <Plus className="h-4 w-4" />
-          Neuer Auftrag
+          <Link href="/auftrage/neu">Neuer Auftrag</Link>
         </Button>
 
         {/* Notifications */}
@@ -151,19 +159,24 @@ export function Header() {
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium">{user?.name}</p>
                 <p className="text-xs text-muted-foreground">{user?.email}</p>
-                <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
+                <p className="text-xs text-muted-foreground capitalize">
+                  {user?.role}
+                </p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>Profil</DropdownMenuItem>
             <DropdownMenuItem>Einstellungen</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+            <DropdownMenuItem
+              onClick={handleLogout}
+              className="text-destructive"
+            >
               Abmelden
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
     </header>
-  )
+  );
 }
