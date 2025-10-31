@@ -4,23 +4,28 @@ import { pg } from "../../../../lib/db";
 
 export const runtime = "nodejs";
 
-// Hilfsfunktion: id aus params sicher extrahieren
-function normalizeIdParam(params: Record<string, string | string[]>) {
-  const raw = params.id;
-  const idStr = Array.isArray(raw) ? raw[0] : raw;
-  return Number(idStr);
+// Hilfsfunktion: id aus context.params holen & normalisieren
+function getIdFromContext(context: any): number | null {
+  const raw = Array.isArray(context?.params?.id)
+    ? context.params.id[0]
+    : context?.params?.id;
+  const id = Number(raw);
+  return Number.isFinite(id) ? id : null;
 }
 
 // GET /api/orders/:id
-export async function GET(_req: Request, { params }: { params: Record<string, string | string[]> }) {
-  const id = normalizeIdParam(params);
-  if (!Number.isFinite(id)) {
+export async function GET(_req: Request, context: any) {
+  const id = getIdFromContext(context);
+  if (id === null) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
   const client = await pg.connect();
   try {
-    const { rows } = await client.query("SELECT * FROM public.orders WHERE id = $1", [id]);
+    const { rows } = await client.query(
+      "SELECT * FROM public.orders WHERE id = $1",
+      [id]
+    );
     if (!rows[0]) return NextResponse.json({ ok: true, item: null }, { status: 200 });
     return NextResponse.json({ ok: true, item: rows[0] });
   } catch (e) {
@@ -32,13 +37,15 @@ export async function GET(_req: Request, { params }: { params: Record<string, st
 }
 
 // PUT /api/orders/:id  (nur status/remark updaten)
-export async function PUT(req: Request, { params }: { params: Record<string, string | string[]> }) {
-  const id = normalizeIdParam(params);
-  if (!Number.isFinite(id)) {
+export async function PUT(req: Request, context: any) {
+  const id = getIdFromContext(context);
+  if (id === null) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
-  const body = (await req.json().catch(() => null)) as Partial<{ status: string; remark: string }>;
+  const body = (await req.json().catch(() => null)) as Partial<{
+    status: string; remark: string;
+  }>;
   if (!body) return NextResponse.json({ error: "Ungültiges JSON" }, { status: 400 });
 
   const client = await pg.connect();
@@ -63,9 +70,9 @@ export async function PUT(req: Request, { params }: { params: Record<string, str
 }
 
 // DELETE /api/orders/:id  (soft delete)
-export async function DELETE(req: Request, { params }: { params: Record<string, string | string[]> }) {
-  const id = normalizeIdParam(params);
-  if (!Number.isFinite(id)) {
+export async function DELETE(req: Request, context: any) {
+  const id = getIdFromContext(context);
+  if (id === null) {
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
   const body = (await req.json().catch(() => ({}))) as { remark?: string };

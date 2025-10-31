@@ -4,9 +4,6 @@ import { pg } from "../../../lib/db";
 
 export const runtime = "nodejs";
 
-/** -----------------------------
- *  Datentypen
- *  ---------------------------- */
 type OrderRow = {
   id: number;
   order_number: number;
@@ -45,9 +42,6 @@ type OrderPayload = {
   createdBy?: string | null;
 };
 
-/** -----------------------------
- *  GET → Aufträge laden
- *  ---------------------------- */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
@@ -88,34 +82,26 @@ export async function GET(req: Request) {
   }
 }
 
-/** -----------------------------
- *  POST → Auftrag speichern
- *  ---------------------------- */
 export async function POST(req: Request) {
   const client = await pg.connect();
   try {
     const body = (await req.json()) as Partial<OrderPayload>;
-
     const status = (body.status ?? "offen") as OrderPayload["status"];
     const tenantId = body.tenantId ?? "TR";
     const createdBy = body.createdBy ?? "admin";
 
     await client.query("BEGIN");
 
-    // Nummer atomar vergeben
     const seq = await client.query("SELECT nextval('public.order_number_seq') AS order_number");
     const orderNumber: number = seq.rows[0].order_number;
 
-    // Insert mit allen Feldern
     const sql = `
       INSERT INTO public.orders (
         order_number, status, shipper, pickup_date, dropoff_date,
         from_zip, to_zip, price_customer, price_carrier, ldm, weight_kg,
         remark, carrier, tenant_id, created_by
       )
-      VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
-      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       RETURNING *;
     `;
 
