@@ -60,7 +60,7 @@ export default function OffeneAuftragePage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("/api/orders?status=offen", {
+        const res = await fetch("/api/orders?tenantId=TR&status=offen", {
           cache: "no-store",
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
