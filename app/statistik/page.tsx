@@ -1,15 +1,27 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   BarChart,
   Bar,
@@ -26,8 +38,16 @@ import {
   Legend,
   ResponsiveContainer,
   Cell,
-} from "recharts"
-import { TrendingUp, TrendingDown, Package, CheckCircle2, Clock, Download, Calendar } from "lucide-react"
+} from "recharts";
+import {
+  TrendingUp,
+  TrendingDown,
+  Package,
+  CheckCircle2,
+  Clock,
+  Download,
+  Calendar,
+} from "lucide-react";
 
 // Demo-Daten
 const DEMO_USERS = [
@@ -35,7 +55,7 @@ const DEMO_USERS = [
   { id: "2", name: "Anna Schmidt", role: "Fahrer" },
   { id: "3", name: "Tom Weber", role: "Disposition" },
   { id: "4", name: "Lisa Müller", role: "Buchhaltung" },
-]
+];
 
 const DEMO_MONTHLY_DATA = [
   { monat: "Jan", erstellt: 45, bearbeitet: 38, geschlossen: 42 },
@@ -44,13 +64,13 @@ const DEMO_MONTHLY_DATA = [
   { monat: "Apr", erstellt: 61, bearbeitet: 55, geschlossen: 58 },
   { monat: "Mai", erstellt: 55, bearbeitet: 52, geschlossen: 54 },
   { monat: "Jun", erstellt: 67, bearbeitet: 62, geschlossen: 65 },
-]
+];
 
 const DEMO_STATUS_DATA = [
   { name: "Erstellt", value: 328, color: "#3b82f6" },
   { name: "Bearbeitet", value: 300, color: "#f59e0b" },
   { name: "Geschlossen", value: 315, color: "#10b981" },
-]
+];
 
 const DEMO_WEEKLY_DATA = [
   { tag: "Mo", auftraege: 12 },
@@ -60,7 +80,7 @@ const DEMO_WEEKLY_DATA = [
   { tag: "Fr", auftraege: 20 },
   { tag: "Sa", auftraege: 8 },
   { tag: "So", auftraege: 5 },
-]
+];
 
 const DEMO_PERFORMANCE_DATA = [
   { monat: "Jan", durchlaufzeit: 4.2, kundenzufriedenheit: 4.5 },
@@ -69,30 +89,35 @@ const DEMO_PERFORMANCE_DATA = [
   { monat: "Apr", durchlaufzeit: 3.2, kundenzufriedenheit: 4.8 },
   { monat: "Mai", durchlaufzeit: 3.0, kundenzufriedenheit: 4.9 },
   { monat: "Jun", durchlaufzeit: 2.8, kundenzufriedenheit: 4.9 },
-]
+];
+
+// Nur Chart-Typen, die im ersten Chart unterstützt sind
+type ChartType = "bar" | "line" | "area";
 
 export default function StatistikPage() {
-  const router = useRouter()
-  const { user, isAdmin } = useAuth()
-  const [selectedUser, setSelectedUser] = useState<string>("all")
-  const [chartType, setChartType] = useState<"bar" | "line" | "area" | "pie">("bar")
-  const [timeRange, setTimeRange] = useState<"week" | "month" | "year">("month")
-  const [mounted, setMounted] = useState(false)
+  const router = useRouter();
+  const { user, isAdmin } = useAuth();
+  const [selectedUser, setSelectedUser] = useState<string>("all");
+  const [chartType, setChartType] = useState<ChartType>("bar");
+  const [timeRange, setTimeRange] = useState<"week" | "month" | "year">(
+    "month"
+  );
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!user) {
-      router.push("/login")
+      router.push("/login");
     } else if (!isAdmin) {
-      router.push("/")
+      router.push("/");
     }
-  }, [user, isAdmin, router])
+  }, [user, isAdmin, router]);
 
   if (!user || !isAdmin) {
-    return null
+    return null;
   }
 
   if (!mounted) {
@@ -102,18 +127,22 @@ export default function StatistikPage() {
           <div className="text-muted-foreground">Lade Statistiken...</div>
         </div>
       </div>
-    )
+    );
   }
 
-  const selectedUserData = DEMO_USERS.find((u) => u.id === selectedUser)
+  const selectedUserData = DEMO_USERS.find((u) => u.id === selectedUser);
 
   return (
     <div className="container py-8 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Benutzer-Statistiken</h1>
-          <p className="text-muted-foreground mt-1">Detaillierte Analyse der Benutzeraktivitäten</p>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Benutzer-Statistiken
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Detaillierte Analyse der Benutzeraktivitäten
+          </p>
         </div>
         <Button className="gap-2">
           <Download className="h-4 w-4" />
@@ -125,7 +154,9 @@ export default function StatistikPage() {
       <Card>
         <CardHeader>
           <CardTitle>Filter & Ansicht</CardTitle>
-          <CardDescription>Wählen Sie Benutzer, Zeitraum und Diagrammtyp</CardDescription>
+          <CardDescription>
+            Wählen Sie Benutzer, Zeitraum und Diagrammtyp
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -148,7 +179,10 @@ export default function StatistikPage() {
 
             <div className="space-y-2">
               <Label>Zeitraum</Label>
-              <Select value={timeRange} onValueChange={(v) => setTimeRange(v as any)}>
+              <Select
+                value={timeRange}
+                onValueChange={(v) => setTimeRange(v as any)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -162,7 +196,10 @@ export default function StatistikPage() {
 
             <div className="space-y-2">
               <Label>Diagrammtyp</Label>
-              <Select value={chartType} onValueChange={(v) => setChartType(v as any)}>
+              <Select
+                value={chartType}
+                onValueChange={(v) => setChartType(v as ChartType)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -170,7 +207,6 @@ export default function StatistikPage() {
                   <SelectItem value="bar">Balkendiagramm</SelectItem>
                   <SelectItem value="line">Liniendiagramm</SelectItem>
                   <SelectItem value="area">Flächendiagramm</SelectItem>
-                  <SelectItem value="pie">Kreisdiagramm</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -197,7 +233,9 @@ export default function StatistikPage() {
               </Avatar>
               <div className="flex-1">
                 <p className="font-medium">{selectedUserData.name}</p>
-                <p className="text-sm text-muted-foreground">{selectedUserData.role}</p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedUserData.role}
+                </p>
               </div>
               <Badge variant="secondary">{selectedUserData.role}</Badge>
             </div>
@@ -209,7 +247,9 @@ export default function StatistikPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Aufträge erstellt</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Aufträge erstellt
+            </CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -223,7 +263,9 @@ export default function StatistikPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Aufträge bearbeitet</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Aufträge bearbeitet
+            </CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -237,7 +279,9 @@ export default function StatistikPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Aufträge geschlossen</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Aufträge geschlossen
+            </CardTitle>
             <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -251,7 +295,9 @@ export default function StatistikPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Durchschnittliche Bearbeitungszeit</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Durchschnittliche Bearbeitungszeit
+            </CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -286,14 +332,22 @@ export default function StatistikPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Monatliche Auftragsübersicht</CardTitle>
-                <CardDescription>Erstellt, bearbeitet und geschlossen</CardDescription>
+                <CardDescription>
+                  Erstellt, bearbeitet und geschlossen
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div style={{ width: "100%", height: 300 }}>
                   <ResponsiveContainer>
                     {chartType === "bar" ? (
-                      <BarChart data={DEMO_MONTHLY_DATA} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <BarChart
+                        data={DEMO_MONTHLY_DATA}
+                        margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          className="stroke-muted"
+                        />
                         <XAxis dataKey="monat" className="text-xs" />
                         <YAxis className="text-xs" />
                         <Tooltip
@@ -304,13 +358,31 @@ export default function StatistikPage() {
                           }}
                         />
                         <Legend />
-                        <Bar dataKey="erstellt" fill="#3b82f6" name="Erstellt" />
-                        <Bar dataKey="bearbeitet" fill="#f59e0b" name="Bearbeitet" />
-                        <Bar dataKey="geschlossen" fill="#10b981" name="Geschlossen" />
+                        <Bar
+                          dataKey="erstellt"
+                          fill="#3b82f6"
+                          name="Erstellt"
+                        />
+                        <Bar
+                          dataKey="bearbeitet"
+                          fill="#f59e0b"
+                          name="Bearbeitet"
+                        />
+                        <Bar
+                          dataKey="geschlossen"
+                          fill="#10b981"
+                          name="Geschlossen"
+                        />
                       </BarChart>
                     ) : chartType === "line" ? (
-                      <LineChart data={DEMO_MONTHLY_DATA} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <LineChart
+                        data={DEMO_MONTHLY_DATA}
+                        margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          className="stroke-muted"
+                        />
                         <XAxis dataKey="monat" className="text-xs" />
                         <YAxis className="text-xs" />
                         <Tooltip
@@ -321,8 +393,20 @@ export default function StatistikPage() {
                           }}
                         />
                         <Legend />
-                        <Line type="monotone" dataKey="erstellt" stroke="#3b82f6" strokeWidth={2} name="Erstellt" />
-                        <Line type="monotone" dataKey="bearbeitet" stroke="#f59e0b" strokeWidth={2} name="Bearbeitet" />
+                        <Line
+                          type="monotone"
+                          dataKey="erstellt"
+                          stroke="#3b82f6"
+                          strokeWidth={2}
+                          name="Erstellt"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="bearbeitet"
+                          stroke="#f59e0b"
+                          strokeWidth={2}
+                          name="Bearbeitet"
+                        />
                         <Line
                           type="monotone"
                           dataKey="geschlossen"
@@ -331,9 +415,15 @@ export default function StatistikPage() {
                           name="Geschlossen"
                         />
                       </LineChart>
-                    ) : chartType === "area" ? (
-                      <AreaChart data={DEMO_MONTHLY_DATA} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    ) : (
+                      <AreaChart
+                        data={DEMO_MONTHLY_DATA}
+                        margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          className="stroke-muted"
+                        />
                         <XAxis dataKey="monat" className="text-xs" />
                         <YAxis className="text-xs" />
                         <Tooltip
@@ -372,7 +462,7 @@ export default function StatistikPage() {
                           name="Geschlossen"
                         />
                       </AreaChart>
-                    ) : null}
+                    )}
                   </ResponsiveContainer>
                 </div>
               </CardContent>
@@ -392,7 +482,9 @@ export default function StatistikPage() {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }) =>
+                          `${name} ${(percent * 100).toFixed(0)}%`
+                        }
                         outerRadius={100}
                         dataKey="value"
                       >
@@ -424,8 +516,14 @@ export default function StatistikPage() {
             <CardContent>
               <div style={{ width: "100%", height: 300 }}>
                 <ResponsiveContainer>
-                  <BarChart data={DEMO_WEEKLY_DATA} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <BarChart
+                    data={DEMO_WEEKLY_DATA}
+                    margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="stroke-muted"
+                    />
                     <XAxis dataKey="tag" className="text-xs" />
                     <YAxis className="text-xs" />
                     <Tooltip
@@ -447,16 +545,28 @@ export default function StatistikPage() {
           <Card>
             <CardHeader>
               <CardTitle>Performance-Metriken</CardTitle>
-              <CardDescription>Durchlaufzeit und Kundenzufriedenheit</CardDescription>
+              <CardDescription>
+                Durchlaufzeit und Kundenzufriedenheit
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div style={{ width: "100%", height: 300 }}>
                 <ResponsiveContainer>
-                  <LineChart data={DEMO_PERFORMANCE_DATA} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <LineChart
+                    data={DEMO_PERFORMANCE_DATA}
+                    margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="stroke-muted"
+                    />
                     <XAxis dataKey="monat" className="text-xs" />
                     <YAxis yAxisId="left" className="text-xs" />
-                    <YAxis yAxisId="right" orientation="right" className="text-xs" />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      className="text-xs"
+                    />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "hsl(var(--background))",
@@ -492,7 +602,9 @@ export default function StatistikPage() {
           <Card>
             <CardHeader>
               <CardTitle>Benutzervergleich</CardTitle>
-              <CardDescription>Leistungsvergleich aller Benutzer</CardDescription>
+              <CardDescription>
+                Leistungsvergleich aller Benutzer
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -510,10 +622,15 @@ export default function StatistikPage() {
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium">{user.name}</p>
-                        <p className="text-sm text-muted-foreground">{45 + index * 12} Aufträge</p>
+                        <p className="text-sm text-muted-foreground">
+                          {45 + index * 12} Aufträge
+                        </p>
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary" style={{ width: `${60 + index * 10}%` }} />
+                        <div
+                          className="h-full bg-primary"
+                          style={{ width: `${60 + index * 10}%` }}
+                        />
                       </div>
                     </div>
                   </div>
@@ -524,5 +641,5 @@ export default function StatistikPage() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }
