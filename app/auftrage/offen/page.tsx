@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Sheet,
@@ -100,6 +101,13 @@ export default function OffeneAuftragePage() {
       status: r.status as any, // "offen" | "in-bearbeitung" | "geschlossen"
       prioritaet: "normal", // (vorerst statisch)
     }));
+  }, [rows]);
+
+  // 3) Map von Anzeige-ID (pad8(order_number)) → echte DB-ID
+  const idMap = useMemo(() => {
+    return new Map<string, number>(
+      rows.map((r) => [pad8(r.order_number), r.id])
+    );
   }, [rows]);
 
   const handleRowClick = (order: Order) => {
@@ -208,11 +216,15 @@ export default function OffeneAuftragePage() {
                   <div>{o.bemerkung || "—"}</div>
                 </div>
                 <div className="col-span-2 flex gap-2 pt-2">
-                  <Button variant="default" size="sm">
-                    Details anzeigen
+                  <Button asChild variant="default" size="sm">
+                    <Link href={`/auftrage/${idMap.get(o.id) ?? ""}`}>
+                      Details anzeigen
+                    </Link>
                   </Button>
-                  <Button variant="outline" size="sm">
-                    Bearbeiten
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/auftrage/${idMap.get(o.id) ?? ""}`}>
+                      Bearbeiten
+                    </Link>
                   </Button>
                 </div>
               </CardContent>
