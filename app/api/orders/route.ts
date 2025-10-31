@@ -1,6 +1,7 @@
+// app/api/orders/route.ts
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { pg } from "../../../lib/db";
 
 /** -----------------------------
@@ -47,7 +48,7 @@ type OrderPayload = {
 /** -----------------------------
  *  GET → Aufträge laden
  *  ---------------------------- */
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
   const limit = Math.max(1, Math.min(Number(searchParams.get("limit") ?? 50), 200));
@@ -90,7 +91,7 @@ export async function GET(req: Request) {
 /** -----------------------------
  *  POST → Auftrag speichern
  *  ---------------------------- */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const client = await pg.connect();
   try {
     const body = (await req.json()) as Partial<OrderPayload>;
@@ -141,9 +142,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, order: rows[0] }, { status: 201 });
   } catch (e: any) {
-    try {
-      await client.query("ROLLBACK");
-    } catch {}
+    try { await client.query("ROLLBACK"); } catch {}
     console.error("POST /api/orders Fehler:", e);
     return NextResponse.json({ error: "Serverfehler beim Speichern" }, { status: 500 });
   } finally {
